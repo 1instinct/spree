@@ -4,10 +4,10 @@ require_relative '../core/lib/spree/core/version.rb'
 Gem::Specification.new do |s|
   s.name          = "spree_api"
   s.version       = Spree.version
-  s.authors       = ["Ryan Bigg"]
-  s.email         = ["ryan@spreecommerce.com"]
-  s.summary       = %q{Spree's API}
-  s.description   = %q{Spree's API}
+  s.authors       = ["Ryan Bigg", "David Dombrowsky"]
+  s.email         = ["davek@6thstreetradio.org"]
+  s.summary       = %q{Spree's API, MI Version}
+  s.description   = %q{Spree's API with MI Extensions}
   s.homepage      = 'https://spreecommerce.org'
   s.license       = 'BSD-3-Clause'
 
