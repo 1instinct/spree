@@ -15,6 +15,7 @@ module Spree
             price = variant.price_in(currency.iso_code)
             price.price = (prices[currency.iso_code]['price'].blank? ? nil : prices[currency.iso_code]['price'])
             price.compare_at_price = (prices[currency.iso_code]['compare_at_price'].blank? ? nil : prices[currency.iso_code]['compare_at_price'])
+            price.wholesale_price = (prices[currency.iso_code]['wholesale_price'].blank? ? nil : prices[currency.iso_code]['wholesale_price'])
             price.save! if price.new_record? && price.price || !price.new_record? && price.changed?
           end
         end
