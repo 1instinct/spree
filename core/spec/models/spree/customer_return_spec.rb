@@ -2,6 +2,7 @@ require 'spec_helper'
 
 describe Spree::CustomerReturn, type: :model do
   before do
+    create(:store, default: true)
     allow_any_instance_of(Spree::Order).to receive_messages(return!: true)
   end
 

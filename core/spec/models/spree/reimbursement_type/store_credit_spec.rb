@@ -21,7 +21,9 @@ module Spree
     let!(:created_by_user) { create(:user, email: Spree::StoreCredit::DEFAULT_CREATED_BY_EMAIL) }
     let!(:default_reimbursement_category) { create(:store_credit_category) }
 
-    before { reimbursement.update!(total: reimbursement.calculated_total) }
+    before do
+      reimbursement.update!(total: reimbursement.calculated_total)
+    end
 
     describe '.reimburse' do
       context 'simulate is true' do

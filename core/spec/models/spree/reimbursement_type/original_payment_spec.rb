@@ -10,7 +10,9 @@ module Spree
     let(:simulate)                { false }
     let!(:default_refund_reason)  { Spree::RefundReason.find_or_create_by!(name: Spree::RefundReason::RETURN_PROCESSING_REASON, mutable: false) }
 
-    before { reimbursement.update!(total: reimbursement.calculated_total) }
+    before do
+      reimbursement.update!(total: reimbursement.calculated_total)
+    end
 
     describe '.reimburse' do
       context 'simulate is true' do
