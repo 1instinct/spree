@@ -12,19 +12,24 @@ module Spree
           end
 
           def price(product_or_variant, currency)
-p 'WHOLESALE'
             price = find_price(product_or_variant, currency)
-p price
-            format('%.2f', price.wholesale_price)
+            amount = if price.wholesale_price.nil?
+                       price.amount
+                     else
+                       price.wholesale_price
+                     end
+            format('%.2f', amount)
           end
 
           def display_price(product_or_variant, currency)
-p 'WHOLESALE'
             price = find_price(product_or_variant, currency)
-p price
             return nil if price.new_record?
-
-            Spree::Money.new(price.wholesale_price, currency: currency).to_s
+            amount = if price.wholesale_price.nil?
+                       price.amount
+                     else
+                       price.wholesale_price
+                     end
+            Spree::Money.new(amount, currency: currency).to_s
           end
 
           def compare_at_price(product_or_variant, currency)
