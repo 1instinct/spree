@@ -26,6 +26,14 @@ module Spree
             spree_authorize! :update, spree_current_order, order_token
             spree_authorize! :show, @variant
 
+            # overwrite amount with wholesale amount
+            # if this is a wholesale user.
+            if (!@spree_current_user.nil? && @spree_current_user.has_spree_role?('wholesale'))
+              @variant.prices.each do |p|
+                p.amount = p.wholesale_price unless p.wholesale_price.nil?
+              end
+            end
+
             result = add_item_service.call(
               order: spree_current_order,
               variant: @variant,
