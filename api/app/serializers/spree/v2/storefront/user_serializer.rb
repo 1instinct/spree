@@ -14,6 +14,10 @@ module Spree
           object.orders.complete.count
         end
 
+        attribute :is_wholesale do |user|
+          user.has_spree_role?('wholesale');
+        end
+
         has_one :default_billing_address,
           id_method_name: :bill_address_id,
           object_method_name: :bill_address,

@@ -18,19 +18,39 @@ module Spree
           end
 
           def collection_sorter
-            Spree::Api::Dependencies.storefront_products_sorter.constantize
+            if (!@spree_current_user.nil? && @spree_current_user.has_spree_role?('wholesale'))
+              pr = Spree::Api::Dependencies.storefront_wholesale_sorter.constantize
+            else
+              pr = Spree::Api::Dependencies.storefront_products_sorter.constantize
+            end
+            pr
           end
 
           def collection_finder
-            Spree::Api::Dependencies.storefront_products_finder.constantize
+            if (!@spree_current_user.nil? && @spree_current_user.has_spree_role?('wholesale'))
+              pr = Spree::Api::Dependencies.storefront_wholesale_finder.constantize
+            else
+              pr = Spree::Api::Dependencies.storefront_products_finder.constantize
+            end
+            pr
           end
 
           def collection_serializer
-            Spree::Api::Dependencies.storefront_product_serializer.constantize
+            if (!@spree_current_user.nil? && @spree_current_user.has_spree_role?('wholesale'))
+              pr = Spree::Api::Dependencies.storefront_wholesale_serializer.constantize
+            else
+              pr = Spree::Api::Dependencies.storefront_product_serializer.constantize
+            end
+            pr
           end
 
           def resource_serializer
-            Spree::Api::Dependencies.storefront_product_serializer.constantize
+            if (!@spree_current_user.nil? && @spree_current_user.has_spree_role?('wholesale'))
+              pr = Spree::Api::Dependencies.storefront_wholesale_serializer.constantize
+            else
+              pr = Spree::Api::Dependencies.storefront_product_serializer.constantize
+            end
+            pr
           end
 
           def model_class

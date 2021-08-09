@@ -21,7 +21,7 @@ module Spree
     }
 
     extend DisplayMoney
-    money_methods :amount, :price, :compare_at_amount
+    money_methods :amount, :wholesale_price, :price, :compare_at_amount
     alias display_compare_at_price display_compare_at_amount
 
     self.whitelisted_ransackable_attributes = ['amount', 'compare_at_amount']
