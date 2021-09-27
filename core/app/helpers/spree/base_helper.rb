@@ -9,6 +9,25 @@ module Spree
       end.sort_by { |c| c.name.parameterize }
     end
 
+    def all_countries
+      countries = Spree::Country.all
+
+      countries.collect do |country|
+        country.name = Spree.t(country.iso, scope: 'country_names', default: country.name)
+        country
+      end.sort_by { |c| c.name.parameterize }
+    end
+
+    def spree_resource_path(resource)
+      last_word = resource.class.name.split('::', 10).last
+
+      spree_class_name_as_path(last_word)
+    end
+
+    def spree_class_name_as_path(class_name)
+      class_name.underscore.humanize.parameterize(separator: '_')
+    end
+
     def display_price(product_or_variant)
       product_or_variant.
         price_in(current_currency).
@@ -36,6 +55,11 @@ module Spree
     end
 
     def logo(image_path = nil, options = {})
+      ActiveSupport::Deprecation.warn(<<-DEPRECATION, caller)
+        `BaseHelper#logo` is deprecated and will be removed in Spree 5.0.
+        Please use `FrontendHelper#logo` instead
+      DEPRECATION
+
       image_path ||= if current_store.logo.attached? && current_store.logo.variable?
                        main_app.url_for(current_store.logo.variant(resize: '244x104>'))
                      elsif current_store.logo.attached? && current_store.logo.image?
@@ -49,6 +73,10 @@ module Spree
       link_to path, 'aria-label': current_store.name, method: options[:method] do
         image_tag image_path, alt: current_store.name, title: current_store.name
       end
+    end
+
+    def spree_favicon_path
+      main_app.url_for(current_store.favicon || 'favicon.ico')
     end
 
     def object
@@ -95,7 +123,7 @@ module Spree
                               description: [object.name, current_store.meta_description].reject(&:blank?).join(', '))
         else
           meta.reverse_merge!(keywords: (current_store.meta_keywords || current_store.seo_title),
-                              description: (current_store.meta_description || current_store.seo_title))
+                              description: (current_store.homepage(I18n.locale)&.seo_meta_description || current_store.seo_meta_description))
         end
       end
       meta
@@ -143,6 +171,34 @@ module Spree
       Spree::Core::Engine.frontend_available?
     end
 
+    def rails_5?
+      Rails::VERSION::STRING < '6.0'
+    end
+
+    def spree_storefront_resource_url(resource, options = {})
+      if defined?(locale_param) && locale_param.present?
+        options.merge!(locale: locale_param)
+      end
+
+      localize = if options[:locale].present?
+                   "/#{options[:locale]}"
+                 else
+                   ''
+                 end
+
+      if resource.instance_of?(Spree::Product)
+        "#{current_store.formatted_url + localize}/#{Spree::Config[:storefront_products_path]}/#{resource.slug}"
+      elsif resource.instance_of?(Spree::Taxon)
+        "#{current_store.formatted_url + localize}/#{Spree::Config[:storefront_taxons_path]}/#{resource.permalink}"
+      elsif resource.instance_of?(Spree::Cms::Pages::FeaturePage) || resource.instance_of?(Spree::Cms::Pages::StandardPage)
+        "#{current_store.formatted_url + localize}/#{Spree::Config[:storefront_pages_path]}/#{resource.slug}"
+      elsif localize.blank?
+        current_store.formatted_url
+      else
+        current_store.formatted_url + localize
+      end
+    end
+
     # we should always try to render image of the default variant
     # same as it's done on PDP
     def default_image_for_product(product)
@@ -171,7 +227,7 @@ module Spree
 
     def base_cache_key
       [I18n.locale, current_currency, defined?(try_spree_current_user) && try_spree_current_user.present?,
-        defined?(try_spree_current_user) && try_spree_current_user.try(:has_spree_role?, 'admin')]
+       defined?(try_spree_current_user) && try_spree_current_user.try(:has_spree_role?, 'admin')]
     end
 
     def maximum_quantity
@@ -190,11 +246,13 @@ module Spree
         options = options.first || {}
         options[:alt] ||= product.name
         image_path = default_image_for_product_or_variant(product)
-        if image_path.present?
-          create_product_image_tag image_path, product, options, style
-        else
-          image_tag "noimage/#{style}.png", options
-        end
+        img = if image_path.present?
+                create_product_image_tag image_path, product, options, style
+              else
+               inline_svg_tag "noimage/backend-missing-image.svg", class: "noimage", size: "60%*60%"
+              end
+
+        content_tag(:div, img, class: "admin-product-image-container #{style}-img")
       end
     end
 
@@ -210,6 +268,10 @@ module Spree
       return if current_store.seo_robots.blank?
 
       tag('meta', name: 'robots', content: current_store.seo_robots)
+    end
+
+    def taxon_wysiwyg_editor_enabled?
+      Spree::Config[:taxon_wysiwyg_editor_enabled]
     end
   end
 end

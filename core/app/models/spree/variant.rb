@@ -3,6 +3,10 @@ module Spree
     acts_as_paranoid
     acts_as_list scope: :product
 
+    include MemoizedData
+
+    MEMOIZED_METHODS = %w(purchasable in_stock backorderable tax_category options_text compare_at_price)
+
     belongs_to :product, -> { with_deleted }, touch: true, class_name: 'Spree::Product', inverse_of: :variants
     belongs_to :tax_category, class_name: 'Spree::TaxCategory', optional: true
 
@@ -29,7 +33,7 @@ module Spree
     end
 
     has_many :option_value_variants, class_name: 'Spree::OptionValueVariant'
-    has_many :option_values, through: :option_value_variants, class_name: 'Spree::OptionValue'
+    has_many :option_values, through: :option_value_variants, dependent: :destroy, class_name: 'Spree::OptionValue'
 
     has_many :images, -> { order(:position) }, as: :viewable, dependent: :destroy, class_name: 'Spree::Image'
 
@@ -56,7 +60,7 @@ module Spree
 
     after_touch :clear_in_stock_cache
 
-    scope :in_stock, -> { joins(:stock_items).where('count_on_hand > ? OR track_inventory = ?', 0, false) }
+    scope :in_stock, -> { joins(:stock_items).where("#{Spree::StockItem.table_name}.count_on_hand > ? OR #{Spree::Variant.table_name}.track_inventory = ?", 0, false) }
     scope :backorderable, -> { joins(:stock_items).where(spree_stock_items: { backorderable: true }) }
     scope :in_stock_or_backorderable, -> { in_stock.or(backorderable) }
 
@@ -93,6 +97,7 @@ module Spree
       not_discontinued.not_deleted.
         for_currency_and_available_price_amount(currency)
     end
+    # FIXME: cost price should be represented with DisplayMoney class
     LOCALIZED_NUMBERS = %w(cost_price weight depth width height)
 
     LOCALIZED_NUMBERS.each do |m|
@@ -199,6 +204,10 @@ module Spree
       price_in(currency).try(:amount)
     end
 
+    def compare_at_amount_in(currency)
+      price_in(currency).try(:compare_at_amount)
+    end
+
     def price_modifier_amount_in(currency, options = {})
       return 0 unless options.present?
 
@@ -242,17 +251,23 @@ module Spree
       # Check if model responds to cache version and fall back to updated_at for older rails versions
       # This makes sure a version is supplied when recyclable cache keys are disabled.
       version = respond_to?(:cache_version) ? cache_version : updated_at.to_i
-      Rails.cache.fetch(in_stock_cache_key, version: version) do
+      @in_stock ||= Rails.cache.fetch(in_stock_cache_key, version: version) do
         total_on_hand > 0
       end
     end
 
-    delegate :total_on_hand, :can_supply?, :backorderable?, to: :quantifier
+    def backorderable?
+      @backorderable ||= Rails.cache.fetch(['variant-backorderable', cache_key_with_version]) do
+        quantifier.backorderable?
+      end
+    end
+
+    delegate :total_on_hand, :can_supply?, to: :quantifier
 
     alias is_backorderable? backorderable?
 
     def purchasable?
-      in_stock? || backorderable?
+      @purchasable ||= in_stock? || backorderable?
     end
 
     # Shortcut method to determine if inventory tracking is enabled for this variant
@@ -282,7 +297,7 @@ module Spree
     end
 
     def backordered?
-      total_on_hand <= 0 && stock_items.exists?(backorderable: true)
+      @backordered ||= !in_stock? && stock_items.exists?(backorderable: true)
     end
 
     private

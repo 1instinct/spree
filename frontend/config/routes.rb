@@ -2,10 +2,11 @@ Spree::Core::Engine.add_routes do
   scope '(:locale)', locale: /#{Spree.available_locales.join('|')}/, defaults: { locale: nil } do
     root to: 'home#index'
 
-    resources :products, only: [:index, :show]
-    get '/products/:id/related', to: 'products#related'
+    resources :products, only: [:index, :show], path: "/#{Spree::Config[:storefront_products_path]}"
+
+    get "/#{Spree::Config[:storefront_products_path]}/:id/related", to: 'products#related'
     # route globbing for pretty nested taxon and product paths
-    get '/t/*id', to: 'taxons#show', as: :nested_taxons
+    get "/#{Spree::Config[:storefront_taxons_path]}/*id", to: 'taxons#show', as: :nested_taxons
     get '/product_carousel/:id', to: 'taxons#product_carousel'
 
     # non-restful checkout stuff
@@ -15,7 +16,7 @@ Spree::Core::Engine.add_routes do
 
     resources :orders, except: [:index, :new, :create, :destroy]
 
-    resources :addresses, except: [:show]
+    resources :addresses, except: [:index, :show]
 
     get '/cart', to: 'orders#edit', as: :cart
     patch '/cart', to: 'orders#update', as: :update_cart
@@ -32,5 +33,10 @@ Spree::Core::Engine.add_routes do
 
     get '/api_tokens', to: 'store#api_tokens'
     post '/ensure_cart', to: 'store#ensure_cart'
+
+    get "#{Spree::Config[:storefront_pages_path]}/:slug", to: 'cms_pages#show', as: :page
+
+    get '/forbidden', to: 'errors#forbidden', as: :forbidden
+    get '/unauthorized', to: 'errors#unauthorized', as: :unauthorized
   end
 end

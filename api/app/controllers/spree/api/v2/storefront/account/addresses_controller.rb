@@ -4,6 +4,8 @@ module Spree
       module Storefront
         module Account
           class AddressesController < ::Spree::Api::V2::ResourceController
+            include Spree::BaseHelper
+
             before_action :require_spree_current_user
 
             def create
@@ -33,7 +35,11 @@ module Spree
             private
 
             def collection
-              collection_finder.new(scope: scope, params: params).execute
+              collection_finder.new(scope: scope, params: finder_params).execute
+            end
+
+            def scope
+              super.where(user: spree_current_user, country: available_countries).not_deleted
             end
 
             def scope
@@ -56,10 +62,6 @@ module Spree
               Spree::Api::Dependencies.storefront_address_serializer.constantize
             end
 
-            def serialize_collection(collection)
-              collection_serializer.new(collection).serializable_hash
-            end
-
             def create_service
               Spree::Api::Dependencies.storefront_account_create_address_service.constantize
             end
@@ -70,14 +72,6 @@ module Spree
 
             def address_params
               params.require(:address).permit(permitted_address_attributes)
-            end
-
-            def render_result(result)
-              if result.success?
-                render_serialized_payload { serialize_resource(result.value) }
-              else
-                render_error_payload(result.error)
-              end
             end
           end
         end

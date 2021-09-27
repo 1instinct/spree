@@ -3,18 +3,20 @@ module Spree
     module V2
       module Storefront
         class ProductsController < ::Spree::Api::V2::ResourceController
-          private
+          include ::Spree::Api::V2::ProductListIncludes
+
+          protected
 
           def sorted_collection
             collection_sorter.new(collection, current_currency, params, allowed_sort_attributes).call
           end
 
           def collection
-            collection_finder.new(scope: scope, params: params, current_currency: current_currency).execute
+            @collection ||= collection_finder.new(scope: scope, params: finder_params).execute
           end
 
           def resource
-            scope.find_by(slug: params[:id]) || scope.find(params[:id])
+            @resource ||= scope.find_by(slug: params[:id]) || scope.find(params[:id])
           end
 
           def collection_sorter
@@ -58,15 +60,19 @@ module Spree
           end
 
           def scope_includes
-            {
-              master: :default_price,
-              variants: [],
-              variant_images: [],
-              taxons: [],
-              product_properties: :property,
-              option_types: :option_values,
-              variants_including_master: %i[default_price option_values]
-            }
+            product_list_includes
+          end
+
+          def allowed_sort_attributes
+            super << :available_on
+          end
+
+          def collection_meta(collection)
+            super(collection).merge(filters: filters_meta)
+          end
+
+          def filters_meta
+            Spree::Api::Products::FiltersPresenter.new(current_store, current_currency, params).to_h
           end
         end
       end

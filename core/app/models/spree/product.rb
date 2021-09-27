@@ -21,7 +21,13 @@
 module Spree
   class Product < Spree::Base
     extend FriendlyId
-    include Spree::ProductScopes
+    include ProductScopes
+    include MultiStoreResource
+    include MemoizedData
+
+    MEMOIZED_METHODS = %w(total_on_hand taxonomy_ids taxon_and_ancestors category
+                          default_variant_id tax_category default_variant
+                          purchasable? in_stock? backorderable?)
 
     friendly_id :slug_candidates, use: :history
 
@@ -35,6 +41,8 @@ module Spree
     has_many :option_types, through: :product_option_types
     has_many :product_properties, dependent: :destroy, inverse_of: :product
     has_many :properties, through: :product_properties
+
+    has_many :menu_items, as: :linked_resource
 
     has_many :classifications, dependent: :delete_all, inverse_of: :product
     has_many :taxons, through: :classifications, before_remove: :remove_taxon
@@ -77,6 +85,9 @@ module Spree
     has_many :variant_images, -> { order(:position) }, source: :images, through: :variants_including_master
     has_many :variant_images_without_master, -> { order(:position) }, source: :images, through: :variants
 
+    has_many :store_products, class_name: 'Spree::StoreProduct'
+    has_many :stores, through: :store_products, class_name: 'Spree::Store'
+
     after_create :add_associations_from_prototype
     after_create :build_variants_from_option_values_hash, if: :option_values_hash
 
@@ -90,10 +101,7 @@ module Spree
     after_save :reset_nested_changes
     after_touch :touch_taxons
 
-    # reset cache on save inside trasaction and transaction commit
-    after_save :reset_memoized_data
-    after_commit :reset_memoized_data
-
+    before_validation :downcase_slug
     before_validation :normalize_slug, on: :update
     before_validation :validate_master
 
@@ -107,7 +115,7 @@ module Spree
       validates :price, if: :requires_price?
     end
 
-    validates :slug, presence: true, uniqueness: { allow_blank: true, case_sensitive: false }
+    validates :slug, presence: true, uniqueness: { allow_blank: true, case_sensitive: true }
     validate :discontinue_on_must_be_later_than_available_on, if: -> { available_on && discontinue_on }
 
     attr_accessor :option_values_hash
@@ -122,7 +130,7 @@ module Spree
 
     [
       :sku, :price, :currency, :weight, :height, :width, :depth, :is_master,
-      :cost_currency, :price_in, :amount_in, :cost_price, :compare_at_price
+      :cost_currency, :price_in, :amount_in, :cost_price, :compare_at_price, :compare_at_amount_in
     ].each do |method_name|
       delegate method_name, :"#{method_name}=", to: :find_or_build_master
     end
@@ -132,26 +140,19 @@ module Spree
 
     alias master_images images
 
-    def reload
-      %w(total_on_hand taxonomy_ids taxon_and_ancestors category category default_variant_id tax_category default_variant).each do |v|
-        instance_variable_set(:"@#{v}", nil)
-      end
-      super
-    end
-
     # Cant use short form block syntax due to https://github.com/Netflix/fast_jsonapi/issues/259
     def purchasable?
-      variants_including_master.any?(&:purchasable?)
+      default_variant.purchasable? || variants.any?(&:purchasable?)
     end
 
     # Cant use short form block syntax due to https://github.com/Netflix/fast_jsonapi/issues/259
     def in_stock?
-      variants_including_master.any?(&:in_stock?)
+      default_variant.in_stock? || variants.any?(&:in_stock?)
     end
 
     # Cant use short form block syntax due to https://github.com/Netflix/fast_jsonapi/issues/259
     def backorderable?
-      variants_including_master.any?(&:backorderable?)
+      default_variant.backorderable? || variants.any?(&:backorderable?)
     end
 
     def find_or_build_master
@@ -173,8 +174,8 @@ module Spree
     # @return [Spree::Variant]
     def default_variant
       @default_variant ||= Rails.cache.fetch(default_variant_cache_key) do
-        if Spree::Config[:track_inventory_levels] && variants.in_stock_or_backorderable.any?
-          variants.in_stock_or_backorderable.first
+        if Spree::Config[:track_inventory_levels] && available_variant = variants.detect(&:purchasable?)
+          available_variant
         else
           has_variants? ? variants.first : master
         end
@@ -300,11 +301,13 @@ module Spree
     end
 
     def total_on_hand
-      @total_on_hand ||= if any_variants_not_track_inventory?
-                           Float::INFINITY
-                         else
-                           stock_items.sum(:count_on_hand)
-                         end
+      @total_on_hand ||= Rails.cache.fetch(['product-total-on-hand', cache_key_with_version]) do
+        if any_variants_not_track_inventory?
+          Float::INFINITY
+        else
+          stock_items.sum(:count_on_hand)
+        end
+      end
     end
 
     # Master variant may be deleted (i.e. when the product is deleted)
@@ -320,6 +323,12 @@ module Spree
 
     def category
       @category ||= taxons.joins(:taxonomy).order(depth: :desc).find_by(spree_taxonomies: { name: Spree.t(:taxonomy_categories_name) })
+    end
+
+    def taxons_for_store(store)
+      Rails.cache.fetch("#{cache_key_with_version}/taxons-per-store/#{store.id}") do
+        taxons.for_store(store)
+      end
     end
 
     private
@@ -481,10 +490,16 @@ module Spree
       end
     end
 
-    def reset_memoized_data
-      %w(total_on_hand taxonomy_ids taxon_and_ancestors category default_variant_id tax_category default_variant).each do |v|
-        instance_variable_set(:"@#{v}", nil)
-      end
+    def requires_price?
+      Spree::Config[:require_master_price]
+    end
+
+    def requires_shipping_category?
+      true
+    end
+
+    def downcase_slug
+      slug&.downcase!
     end
 
     def requires_price?
