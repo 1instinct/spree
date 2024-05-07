@@ -3,6 +3,8 @@ module Spree
     acts_as_paranoid
     acts_as_list
 
+    include MultiStoreResource
+
     DISPLAY = [:both, :front_end, :back_end].freeze
 
     scope :active,                 -> { where(active: true).order(position: :asc) }
@@ -31,6 +33,8 @@ module Spree
     # e.g. CreditCard in the case of a the Gateway payment type
     # nil means the payment method doesn't require a source e.g. check
     def payment_source_class
+      return unless source_required?
+
       raise ::NotImplementedError, 'You must implement payment_source_class method for this gateway.'
     end
 
@@ -82,6 +86,18 @@ module Spree
       return true if store.blank?
 
       store_ids.include?(store.id)
+    end
+
+    def public_preferences
+      public_preference_keys.each_with_object({}) do |key, hash|
+        hash[key] = preferences[key]
+      end
+    end
+
+    protected
+
+    def public_preference_keys
+      []
     end
   end
 end

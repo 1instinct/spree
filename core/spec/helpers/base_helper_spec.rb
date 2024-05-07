@@ -71,6 +71,54 @@ describe Spree::BaseHelper, type: :helper do
     end
   end
 
+  describe '#spree_storefront_resource_url' do
+    let!(:store) { create(:store) }
+    let!(:taxon) { create(:taxon) }
+    let!(:product) { create(:product) }
+
+    before do
+      allow(helper).to receive(:frontend_available?).and_return(false)
+      allow(helper).to receive(:current_store).and_return(store)
+      allow(helper).to receive(:locale_param)
+    end
+
+    context 'for Product URL' do
+      it { expect(helper.spree_storefront_resource_url(product)).to eq("http://www.example.com/products/#{product.slug}") }
+
+      context 'when a locale is passed' do
+        before do
+          allow(helper).to receive(:current_store).and_return(store)
+        end
+
+        it { expect(helper.spree_storefront_resource_url(product, locale: :de)).to eq("http://www.example.com/de/products/#{product.slug}") }
+      end
+
+      context 'when locale_param is present' do
+        before do
+          allow(helper).to receive(:locale_param).and_return(:fr)
+        end
+
+        it { expect(helper.spree_storefront_resource_url(product)).to eq("http://www.example.com/fr/products/#{product.slug}") }
+      end
+    end
+
+    context 'for Taxon URL' do
+      it { expect(helper.spree_storefront_resource_url(taxon)).to eq("http://www.example.com/t/#{taxon.permalink}") }
+
+      context 'when a locale is passed' do
+        it { expect(helper.spree_storefront_resource_url(taxon, locale: :de)).to eq("http://www.example.com/de/t/#{taxon.permalink}") }
+      end
+
+      context 'when locale_param is present' do
+        before do
+          allow(helper).to receive(:locale_param).and_return(:fr)
+        end
+
+        it { expect(helper.spree_storefront_resource_url(taxon)).to eq("http://www.example.com/fr/t/#{taxon.permalink}") }
+      end
+    end
+  end
+
   # Regression test for #1436
   context 'defining custom image helpers' do
     let(:product) { build(:product) }
@@ -80,6 +128,7 @@ describe Spree::BaseHelper, type: :helper do
         styles[:very_strange] = '1x1'
         styles.merge!(foobar: '2x2')
       end
+      allow_any_instance_of(described_class).to receive(:inline_svg_tag).and_return('<svg></svg>')
     end
 
     it 'does not raise errors when style exists' do
@@ -180,7 +229,7 @@ describe Spree::BaseHelper, type: :helper do
       # controller_name is used by this method to infer what it is supposed
       # to be generating meta_data_tags for
       text = FFaker::Lorem.paragraphs(2).join(' ')
-      @test = Spree::Product.new(description: text)
+      @test = Spree::Product.new(description: text, stores: [current_store])
       tags = Nokogiri::HTML.parse(meta_data_tags)
       content = tags.css('meta[name=description]').first['content']
       assert content.length <= 160, 'content length is not truncated to 160 characters'
@@ -191,7 +240,7 @@ describe Spree::BaseHelper, type: :helper do
     let(:current_currency) { 'USD' }
     let(:image) { create(:image, position: 1) }
     let(:product) do
-      create(:product).tap { |product| product.master.images << image }
+      create(:product, stores: [current_store]).tap { |product| product.master.images << image }
     end
 
     it 'renders open graph meta data tags for PDP' do
@@ -244,7 +293,7 @@ describe Spree::BaseHelper, type: :helper do
   end
 
   describe '#display_price' do
-    let!(:product) { create(:product) }
+    let!(:product) { create(:product, stores: [current_store]) }
     let(:current_currency) { 'USD' }
     let(:current_price_options) { { tax_zone: current_tax_zone } }
 
@@ -307,7 +356,7 @@ describe Spree::BaseHelper, type: :helper do
   end
 
   describe '#default_image_for_product_or_variant' do
-    let(:product) { build :product }
+    let(:product) { build :product, stores: [current_store] }
     let(:variant) { build :variant, product: product }
 
     subject(:default_image) { default_image_for_product_or_variant(product_or_variant) }
@@ -368,6 +417,23 @@ describe Spree::BaseHelper, type: :helper do
         let!(:image_2) { create :image, viewable: variant_2 }
 
         it { is_expected.to eq(image_1) }
+      end
+    end
+  end
+
+  describe '#spree_favicon_path' do
+    context 'when a store has its own favicon' do
+      let(:current_store) { create(:store, :with_favicon) }
+
+      it do
+        expect(spree_favicon_path).to end_with('favicon.ico')
+        expect(URI.parse(spree_favicon_path).host).to be_present
+      end
+    end
+
+    context 'when a store has no favicon' do
+      it do
+        expect(spree_favicon_path).to eq('favicon.ico')
       end
     end
   end

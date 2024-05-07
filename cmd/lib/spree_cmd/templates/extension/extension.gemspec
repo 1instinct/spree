@@ -2,7 +2,7 @@
 lib = File.expand_path('../lib/', __FILE__)
 $LOAD_PATH.unshift lib unless $LOAD_PATH.include?(lib)
 
-require '<%=file_name%>/version'
+require '<%= file_name %>/version'
 
 Gem::Specification.new do |s|
   s.platform    = Gem::Platform::RUBY
@@ -21,10 +21,8 @@ Gem::Specification.new do |s|
   s.require_path = 'lib'
   s.requirements << 'none'
 
-  spree_version = '>= 4.2.0', '< 6.0'
-  s.add_dependency 'spree_core', spree_version
-  s.add_dependency 'spree_api', spree_version
-  s.add_dependency 'spree_backend', spree_version
+  s.add_dependency 'spree', '>= <%= Gem.loaded_specs['spree_cmd'].version %>'
+  # s.add_dependency 'spree_backend' # uncomment to include Admin Panel changes
   s.add_dependency 'spree_extension'
 
   s.add_development_dependency 'spree_dev_tools'
