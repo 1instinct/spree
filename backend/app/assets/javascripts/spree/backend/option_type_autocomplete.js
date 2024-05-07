@@ -1,37 +1,33 @@
 $.fn.optionTypeAutocomplete = function () {
   'use strict'
 
+  console.warn('optionTypeAutocomplete is deprecated and will be removed in Spree 5.0')
+
   this.select2({
     minimumInputLength: 2,
     multiple: true,
     ajax: {
-      url: Spree.routes.option_types_api,
+      url: Spree.routes.option_types_api_v2,
       datatype: 'json',
+      headers: Spree.apiV2Authentication(),
       data: function (params) {
-        var query = {
-          q: {
-            name_cont: params.term
-          },
-          token: Spree.api_key
+        return {
+          filter: {
+            name_i_cont: params.term
+          }
         }
-
-        return query
       },
       processResults: function (data) {
-        return {
-          results: data
-        }
+        return formatSelect2Options(data)
       }
-    },
-    templateResult: function (optionType) {
-      return optionType.name
-    },
-    templateSelection: function (optionType) {
-      return optionType.text
     }
   })
 }
 
 $(document).ready(function () {
+  var productOptionTypeSelector = document.getElementById('product_option_type_ids')
+  if (productOptionTypeSelector == null) return
+  if (productOptionTypeSelector.hasAttribute('data-autocomplete-url-value')) return
+
   $('#product_option_type_ids').optionTypeAutocomplete()
 })

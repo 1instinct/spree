@@ -9,7 +9,6 @@ AllCops:
     - '**/Gemfile.lock'
     - '**/Rakefile'
     - '**/rails'
-    - 'guides/**/*'
     - '**/*.gemspec'
     - '**/dummy/**/*'
     - '**/vendor/**/*'
@@ -62,6 +61,11 @@ Style/StringLiterals:
 Layout/DotPosition:
   EnforcedStyle: trailing
   Enabled: true
+
+Layout/SpaceInsideArrayLiteralBrackets:
+  Exclude:
+    - 'api/spec/integration/**/*.rb'
+    - 'api/lib/spree/api/testing_support/v2/platform_contexts.rb'
 
 Style/FrozenStringLiteralComment:
   Enabled: false

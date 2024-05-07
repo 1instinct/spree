@@ -3,9 +3,14 @@ module Spree
     module V2
       class ResourceController < ::Spree::Api::V2::BaseController
         include Spree::Api::V2::CollectionOptionsHelpers
+        include Spree::Api::V2::Caching
 
         def index
-          render_serialized_payload { serialize_collection(paginated_collection) }
+          render_serialized_payload do
+            Rails.cache.fetch(collection_cache_key(paginated_collection), collection_cache_opts) do
+              serialize_collection(paginated_collection)
+            end
+          end
         end
 
         def show
@@ -15,7 +20,7 @@ module Spree
         protected
 
         def sorted_collection
-          collection_sorter.new(collection, params, allowed_sort_attributes).call
+          @sorted_collection ||= collection_sorter.new(collection, params, allowed_sort_attributes).call
         end
 
         def allowed_sort_attributes
@@ -23,11 +28,14 @@ module Spree
         end
 
         def default_sort_atributes
-          [:id, :updated_at, :created_at]
+          [:id, :name, :number, :position, :updated_at, :created_at]
         end
 
-        def scope
-          model_class.accessible_by(current_ability, :show).includes(scope_includes)
+        def scope(skip_cancancan: false)
+          base_scope = model_class.for_store(current_store)
+          base_scope = base_scope.accessible_by(current_ability, :show) unless skip_cancancan
+          base_scope = base_scope.includes(scope_includes) if scope_includes.any? && action_name == 'index'
+          base_scope
         end
 
         def scope_includes
@@ -36,7 +44,7 @@ module Spree
 
         def resource
           @resource ||= if defined?(resource_finder)
-                          resource_finder.new(scope: scope, params: params).execute
+                          resource_finder.new(scope: scope, params: finder_params).execute
                         else
                           scope.find(params[:id])
                         end
@@ -44,10 +52,19 @@ module Spree
 
         def collection
           @collection ||= if defined?(collection_finder)
-                            collection_finder.new(scope: scope, params: params).execute
+                            collection_finder.new(scope: scope, params: finder_params).execute
                           else
                             scope
                           end
+        end
+
+        def finder_params
+          params.merge(
+            store: current_store,
+            locale: current_locale,
+            currency: current_currency,
+            user: spree_current_user
+          )
         end
 
         def collection_sorter

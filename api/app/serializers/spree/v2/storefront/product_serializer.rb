@@ -6,7 +6,7 @@ module Spree
 
         set_type :product
 
-        attributes :name, :description, :available_on, :slug, :meta_description, :meta_keywords, :updated_at
+        attributes :name, :description, :available_on, :slug, :meta_description, :meta_keywords, :updated_at, :sku
 
         attribute :purchasable do |product|
           product.purchasable?
@@ -47,20 +47,29 @@ module Spree
         has_many :variants
         has_many :option_types
         has_many :product_properties
-        has_many :taxons
+
+        has_many :taxons, serializer: :taxon, record_type: :taxon do |object, params|
+          object.taxons_for_store(params[:store])
+        end
 
         # all images from all variants
         has_many :images,
-          object_method_name: :variant_images,
-          id_method_name: :variant_image_ids,
-          record_type: :image,
-          serializer: :image
+                 object_method_name: :variant_images,
+                 id_method_name: :variant_image_ids,
+                 record_type: :image,
+                 serializer: :image
 
-        has_one  :default_variant,
-          object_method_name: :default_variant,
-          id_method_name: :default_variant_id,
-          record_type: :variant,
-          serializer: :variant
+        has_one :default_variant,
+                object_method_name: :default_variant,
+                id_method_name: :default_variant_id,
+                record_type: :variant,
+                serializer: :variant
+
+        has_one :primary_variant,
+                object_method_name: :master,
+                id_method_name: :master_id,
+                record_type: :variant,
+                serializer: :variant
       end
     end
   end
