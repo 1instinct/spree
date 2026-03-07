@@ -18,8 +18,6 @@ module Spree
           url: polymorphic_path(attachment.variant(
                                   gravity: 'center',
                                   resize: size,
-                                  extent: size,
-                                  background: 'snow2',
                                   quality: 80
                                 ), only_path: true),
           width: width,
@@ -38,8 +36,6 @@ module Spree
         url: polymorphic_path(attachment.variant(
                                 gravity: 'center',
                                 resize: size,
-                                extent: size,
-                                background: 'snow2',
                                 quality: 80
                               ), only_path: true),
         size: size,
@@ -63,8 +59,6 @@ module Spree
       variant = attachment.variant(
         gravity: 'center',
         resize: size,
-        extent: size,
-        background: 'snow2',
         quality: 80
       )
 
