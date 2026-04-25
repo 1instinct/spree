@@ -1,6 +1,14 @@
 module Spree
   class Order < Spree::Base
     module StoreCredit
+      def add_store_credit_payments(amount = nil)
+        Spree::Dependencies.checkout_add_store_credit_service.constantize.call(order: self, amount: amount)
+      end
+
+      def remove_store_credit_payments
+        Spree::Dependencies.checkout_remove_store_credit_service.constantize.call(order: self)
+      end
+
       def covered_by_store_credit?
         return false unless user
 
@@ -11,7 +19,7 @@ module Spree
       def total_available_store_credit
         return 0.0 unless user
 
-        user.total_available_store_credit
+        user.total_available_store_credit(currency, store)
       end
 
       def could_use_store_credit?

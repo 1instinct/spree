@@ -2,11 +2,14 @@ module Spree
   module PermittedAttributes
     ATTRIBUTES = [
       :address_attributes,
+      :classification_attributes,
       :checkout_attributes,
       :customer_return_attributes,
       :image_attributes,
       :inventory_unit_attributes,
       :line_item_attributes,
+      :menu_attributes,
+      :menu_item_attributes,
       :option_type_attributes,
       :option_value_attributes,
       :payment_attributes,
@@ -24,7 +27,9 @@ module Spree
       :taxon_attributes,
       :taxonomy_attributes,
       :user_attributes,
-      :variant_attributes
+      :variant_attributes,
+      :cms_page_attributes,
+      :cms_section_attributes
     ]
 
     mattr_reader *ATTRIBUTES
@@ -43,6 +48,14 @@ module Spree
       :user_id, :bill_address_id, :ship_address_id
     ]
 
+    @@classification_attributes = [
+      :position, :taxon_id, :product_id
+    ]
+
+    @@cms_page_attributes = [:title, :meta_title, :content, :meta_description, :visible, :slug, :locale]
+
+    @@cms_section_attributes = [:name, :content, :settings, :fit, :destination]
+
     @@customer_return_attributes = [:stock_location_id, return_items_attributes: [:id, :inventory_unit_id, :return_authorization_id, :returned, :pre_tax_amount, :acceptance_status, :exchange_variant_id, :resellable]]
 
     @@image_attributes = [:alt, :attachment, :position, :viewable_type, :viewable_id]
@@ -50,6 +63,11 @@ module Spree
     @@inventory_unit_attributes = [:shipment, :shipment_id, :variant_id]
 
     @@line_item_attributes = [:id, :variant_id, :quantity]
+
+    @@menu_attributes = [:name, :locale, :location]
+
+    @@menu_item_attributes = [:name, :subtite, :destination, :new_window, :item_type,
+                              :linked_resource_type, :linked_resource_id, :code, :menu_id]
 
     @@option_type_attributes = [:name, :presentation, :option_values_attributes]
 
@@ -101,7 +119,7 @@ module Spree
                           :customer_support_email, :facebook, :twitter, :instagram,
                           :description, :address, :contact_phone, :supported_locales,
                           :default_locale, :default_country_id, :supported_currencies,
-                          :new_order_notifications_email, :mailer_logo, :checkout_zone_id, :seo_robots]
+                          :new_order_notifications_email, :mailer_logo, :favicon_image, :checkout_zone_id, :seo_robots]
 
     @@store_credit_attributes = %i[amount currency category_id memo]
 
@@ -113,7 +131,7 @@ module Spree
     ]
 
     # TODO: Should probably use something like Spree.user_class.attributes
-    @@user_attributes = [:email, :password, :password_confirmation]
+    @@user_attributes = [:email, :bill_address_id, :ship_address_id, :password, :password_confirmation]
 
     @@variant_attributes = [
       :name, :presentation, :cost_price, :discontinue_on, :lock_version,

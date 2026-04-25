@@ -1,4 +1,4 @@
-version: 2 # use CircleCI 2.0
+version: 2.1 # use CircleCI 2.0
 
 defaults: &defaults
   environment: &environment
@@ -10,11 +10,13 @@ defaults: &defaults
   working_directory: ~/spree
   docker:
     - image: &ruby_image circleci/ruby:2.7-node-browsers
+    - image: &redis_image circleci/redis:6.2-alpine
 
 defaults_3_0: &defaults_3_0
   <<: *defaults
   docker:
     - image: &ruby_3_0_image circleci/ruby:3.0-node-browsers
+    - image: *redis_image
 
 run_tests: &run_tests
   <<: *defaults
@@ -23,11 +25,11 @@ run_tests: &run_tests
     - checkout
     - restore_cache:
         keys:
-          - spree-bundle-v7-ruby-2-7-{{ .Branch }}
-          - spree-bundle-v7-ruby-2-7
+          - spree-bundle-v9-ruby-2-7-{{ .Branch }}
+          - spree-bundle-v9-ruby-2-7
     - run:
         name: Run rspec in parallel
-        command: BUNDLE_GEMFILE=../Gemfile ./bin/build-ci.rb test
+        command: ./bin/build-ci.rb test
     - store_artifacts:
         path: /tmp/test-artifacts
         destination: test-artifacts
@@ -44,11 +46,11 @@ run_tests_3_0: &run_tests_3_0
     - checkout
     - restore_cache:
         keys:
-          - spree-bundle-v7-ruby-3-0-{{ .Branch }}
-          - spree-bundle-v7-ruby-3-0
+          - spree-bundle-v9-ruby-3-0-{{ .Branch }}
+          - spree-bundle-v9-ruby-3-0
     - run:
         name: Run rspec in parallel
-        command: BUNDLE_GEMFILE=../Gemfile ./bin/build-ci.rb test
+        command: ./bin/build-ci.rb test
     - store_artifacts:
         path: /tmp/test-artifacts
         destination: test-artifacts
@@ -65,15 +67,15 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - spree-bundle-v7-ruby-2-7-{{ .Branch }}
-            - spree-bundle-v7-ruby-2-7
+            - spree-bundle-v9-ruby-2-7-{{ .Branch }}
+            - spree-bundle-v9-ruby-2-7
       - run:
           name: Bundle Install
           command: |
             bundle check || bundle install
             ./bin/build-ci.rb install
       - save_cache:
-          key: spree-bundle-v7-ruby-2-7-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
+          key: spree-bundle-v9-ruby-2-7-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
           paths:
             - ~/spree/vendor/bundle
 
@@ -83,15 +85,15 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - spree-bundle-v7-ruby-3-0-{{ .Branch }}
-            - spree-bundle-v7-ruby-3-0
+            - spree-bundle-v9-ruby-3-0-{{ .Branch }}
+            - spree-bundle-v9-ruby-3-0
       - run:
           name: Bundle Install
           command: |
             bundle check || bundle install
             ./bin/build-ci.rb install
       - save_cache:
-          key: spree-bundle-v7-ruby-3-0-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
+          key: spree-bundle-v9-ruby-3-0-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
           paths:
             - ~/spree/vendor/bundle
 
@@ -104,6 +106,7 @@ jobs:
       DB_USERNAME: postgres
     docker:
       - image: *ruby_image
+      - image: *redis_image
       - image: &postgres_image circleci/postgres:12-alpine
         environment:
           POSTGRES_USER: postgres
@@ -115,6 +118,7 @@ jobs:
     docker:
       - image: *ruby_3_0_image
       - image: *postgres_image
+      - image: *redis_image
 
   tests_postgres_rails_6_0:
     <<: *tests_postgres
@@ -125,8 +129,8 @@ jobs:
     - checkout
     - restore_cache:
         keys:
-          - spree-bundle-v7-ruby-2-7-{{ .Branch }}
-          - spree-bundle-v7-ruby-2-7
+          - spree-bundle-v9-ruby-2-7-{{ .Branch }}
+          - spree-bundle-v9-ruby-2-7
     - run:
         name: Ensure Bundle Install
         command: |
@@ -134,7 +138,35 @@ jobs:
           ./bin/build-ci.rb install
     - run:
         name: Run rspec in parallel
-        command: BUNDLE_GEMFILE=../Gemfile ./bin/build-ci.rb test
+        command: ./bin/build-ci.rb test
+    - store_artifacts:
+        path: /tmp/test-artifacts
+        destination: test-artifacts
+    - store_artifacts:
+        path: /tmp/test-results
+        destination: raw-test-output
+    - store_test_results:
+        path: /tmp/test-results
+
+  tests_postgres_rails_5_2:
+    <<: *tests_postgres
+    environment:
+      <<: *postgres_environment
+      RAILS_VERSION: '~> 5.2.0'
+    steps:
+    - checkout
+    - restore_cache:
+        keys:
+          - spree-bundle-v9-ruby-2-7-{{ .Branch }}
+          - spree-bundle-v9-ruby-2-7
+    - run:
+        name: Ensure Bundle Install
+        command: |
+          bundle install
+          ./bin/build-ci.rb install
+    - run:
+        name: Run rspec in parallel
+        command: ./bin/build-ci.rb test
     - store_artifacts:
         path: /tmp/test-artifacts
         destination: test-artifacts
@@ -183,6 +215,7 @@ jobs:
       COVERAGE_DIR: /tmp/workspace/simplecov
     docker:
       - image: *ruby_image
+      - image: *redis_image
       - image: &mysql_image circleci/mysql:8-ram
 
   tests_mysql_ruby_3_0:
@@ -191,17 +224,18 @@ jobs:
       <<: *mysql_environment
     docker:
       - image: *ruby_3_0_image
+      - image: *redis_image
       - image: *mysql_image
         command: [--default-authentication-plugin=mysql_native_password]
     steps:
       - checkout
       - restore_cache:
           keys:
-            - spree-bundle-v7-ruby-3-0-{{ .Branch }}
-            - spree-bundle-v7-ruby-3-0
+            - spree-bundle-v9-ruby-3-0-{{ .Branch }}
+            - spree-bundle-v9-ruby-3-0
       - run:
           name: Run rspec in parallel
-          command: BUNDLE_GEMFILE=../Gemfile ./bin/build-ci.rb test
+          command: ./bin/build-ci.rb test
       - store_artifacts:
           path: /tmp/test-artifacts
           destination: test-artifacts
@@ -240,15 +274,19 @@ jobs:
             ./tmp/cc-test-reporter format-coverage -t simplecov -o tmp/codeclimate.backend.json /tmp/workspace/simplecov/backend/.resultset.json
             ./tmp/cc-test-reporter format-coverage -t simplecov -o tmp/codeclimate.core.json /tmp/workspace/simplecov/core/.resultset.json
             ./tmp/cc-test-reporter format-coverage -t simplecov -o tmp/codeclimate.frontend.json /tmp/workspace/simplecov/frontend/.resultset.json
+            ./tmp/cc-test-reporter format-coverage -t simplecov -o tmp/codeclimate.emails.json /tmp/workspace/simplecov/emails/.resultset.json
       - run:
           name: Upload coverage results to Code Climate
           command: |
-            ./tmp/cc-test-reporter sum-coverage tmp/codeclimate.*.json -p 4 -o tmp/codeclimate.total.json
+            ./tmp/cc-test-reporter sum-coverage tmp/codeclimate.*.json -p 5 -o tmp/codeclimate.total.json
             ./tmp/cc-test-reporter upload-coverage -i tmp/codeclimate.total.json
 
   update_staging_repository:
     docker:
       - image: circleci/ruby:2.7.2
+      - image: postgres:13-alpine
+        environment:
+          POSTGRES_HOST_AUTH_METHOD: trust
     steps:
       - add_ssh_keys:
           fingerprints:
@@ -259,7 +297,7 @@ jobs:
       - run: ssh-add ~/.ssh/id_rsa_54505e4e806d2e2643c699bd39b271dc
       - run: git clone -b master git@github.com:spark-solutions/spree-designs.git
       - run:
-          command: bundle update spree
+          command: bundle update
           working_directory: ~/project/spree-designs
       - run:
           command: bundle exec rails spree:install:migrations
@@ -308,4 +346,4 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - main

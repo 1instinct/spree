@@ -21,7 +21,7 @@ ENV['RAILS_ENV'] ||= 'test'
 begin
   require File.expand_path('../dummy/config/environment', __FILE__)
 rescue LoadError
-  puts 'Could not load dummy application. Please ensure you have run `BUNDLE_GEMFILE=../Gemfile bundle exec rake test_app`'
+  puts 'Could not load dummy application. Please ensure you have run `bundle exec rake test_app`'
   exit
 end
 
@@ -83,6 +83,11 @@ RSpec.configure do |config|
 
     DatabaseCleaner.start
     reset_spree_preferences
+
+    country = create(:country, name: 'United States of America', iso_name: 'UNITED STATES', iso: 'US', states_required: true)
+    Spree::Config[:default_country_id] = country.id
+
+    create(:store, default: true)
   end
 
   config.after(:each, type: :feature) do |example|
@@ -120,11 +125,27 @@ end
 module Spree
   module TestingSupport
     module Flash
-      def assert_flash_success(flash)
-        flash = convert_flash(flash)
+      def assert_admin_flash_alert_success(message)
+        message_content = convert_flash(message)
 
-        within('.alert-success') do
-          expect(page).to have_content(flash)
+        within('#FlashAlertsContainer', visible: :all) do
+          expect(page).to have_css('span[data-alert-type="success"]', text: message_content, visible: :all)
+        end
+      end
+
+      def assert_admin_flash_alert_error(message)
+        message_content = convert_flash(message)
+
+        within('#FlashAlertsContainer', visible: :all) do
+          expect(page).to have_css('span[data-alert-type="error"]', text: message_content, visible: :all)
+        end
+      end
+
+      def assert_admin_flash_alert_notice(message)
+        message_content = convert_flash(message)
+
+        within('#FlashAlertsContainer', visible: :all) do
+          expect(page).to have_css('span[data-alert-type="notice"]', text: message_content, visible: :all)
         end
       end
     end

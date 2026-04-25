@@ -18,15 +18,11 @@ module Spree
           end
 
           def paginated_collection
-            collection_paginator.new(collection, params).call
-          end
-
-          def collection
-            collection_finder.new(scope: scope, params: params).execute
+            @paginated_collection ||= collection_paginator.new(collection, params).call
           end
 
           def resource
-            scope.find_by(permalink: params[:id]) || scope.find(params[:id])
+            @resource ||= scope.find_by(permalink: params[:id]) || scope.find(params[:id])
           end
 
           def model_class
@@ -34,15 +30,18 @@ module Spree
           end
 
           def scope_includes
-            node_includes = %i[icon products parent taxonomy]
+            node_includes = %i[icon parent taxonomy]
 
             {
               parent: node_includes,
               children: node_includes,
               taxonomy: [root: node_includes],
-              products: [],
               icon: [attachment_attachment: :blob]
             }
+          end
+
+          def serializer_params
+            super.merge(include_products: action_name == 'show')
           end
         end
       end

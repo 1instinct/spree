@@ -10,7 +10,17 @@ FactoryBot.define do
     shipping_category { |r| Spree::ShippingCategory.first || r.association(:shipping_category) }
 
     # ensure stock item will be created for this products master
-    before(:create) { create(:stock_location) unless Spree::StockLocation.any? }
+    # also attach this product to the default store if no stores are passed in
+    before(:create) do |product|
+      create(:stock_location) unless Spree::StockLocation.any?
+
+      if product.stores.empty?
+        default_store = Spree::Store.default.persisted? ? Spree::Store.default : nil
+        store = default_store || create(:store)
+
+        product.stores << [store]
+      end
+    end
 
     factory :custom_product do
       name  { 'Custom Product' }
@@ -25,6 +35,12 @@ FactoryBot.define do
       factory :product_in_stock do
         after :create do |product|
           product.master.stock_items.first.adjust_count_on_hand(10)
+        end
+
+        trait :without_backorder do
+          after :create do |product|
+            product.master.stock_items.update_all(backorderable: false)
+          end
         end
       end
 
