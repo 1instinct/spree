@@ -132,4 +132,37 @@ describe Spree::Checkout::Update, type: :service do
       expect(order.state).to eq 'delivery'
     end
   end
+
+  describe 'address ownership validation (GHSA-g268-72p7-9j6j)' do
+    let(:user) { create(:user_with_addresses) }
+    let(:other_user) { create(:user_with_addresses) }
+    let(:order) { create(:order_with_line_items, user: user, state: 'address') }
+    let(:permitted_attributes) do
+      Spree::PermittedAttributes.checkout_attributes + [
+        bill_address_attributes: Spree::PermittedAttributes.address_attributes,
+        ship_address_attributes: Spree::PermittedAttributes.address_attributes
+      ]
+    end
+    let(:result) { described_class.call(order: order, params: order_params, permitted_attributes: permitted_attributes, request_env: nil) }
+
+    %w[bill ship].each do |kind|
+      context "when #{kind}_address_attributes contains id of another user address" do
+        let(:other_user_address) { create(:address, user: other_user) }
+        let(:order_params) { ActionController::Parameters.new(order: { "#{kind}_address_attributes": { id: other_user_address.id } }) }
+
+        it 'returns failure and does not associate the address' do
+          expect(result).to be_failure
+          expect(order.reload.public_send("#{kind}_address_id")).not_to eq other_user_address.id
+        end
+      end
+    end
+
+    context 'when address_attributes contains id of the same user address' do
+      let(:order_params) { ActionController::Parameters.new(order: { bill_address_attributes: { id: create(:address, user: user).id } }) }
+
+      it 'returns success' do
+        expect(result).to be_success
+      end
+    end
+  end
 end

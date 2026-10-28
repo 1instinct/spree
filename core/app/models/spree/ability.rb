@@ -70,7 +70,8 @@ module Spree
       can :update, ::Spree::Order do |order, token|
         !order.completed? && (order.user == user || order.token && token == order.token)
       end
-      can :manage, ::Spree::Address, user_id: user.id
+      # Guests are a non-persisted user with id nil; never match guest addresses (GHSA-3ghg-3787-w2xr).
+      can :manage, ::Spree::Address, user_id: user.id if user.persisted?
       can :read, ::Spree::CreditCard, user_id: user.id
       can :read, ::Spree::Product
       can :read, ::Spree::ProductProperty

@@ -444,6 +444,36 @@ describe 'API V2 Storefront Checkout Spec', type: :request do
     end
   end
 
+  describe 'checkout#update address ownership validation (GHSA-g268-72p7-9j6j)' do
+    let(:other_user) { create(:user_with_addresses) }
+    let(:other_user_address) { create(:address, user: other_user) }
+    let(:execute) { patch '/api/v2/storefront/checkout', params: params, headers: headers }
+    let(:params) { { order: { bill_address_attributes: { id: other_user_address.id } } } }
+
+    context 'as a signed in user' do
+      include_context 'creates order with line item'
+
+      before { execute }
+
+      it 'returns 422 and does not associate the address of another user' do
+        expect(response.status).to eq(422)
+        expect(json_response['error']).to be_present
+        expect(order.reload.bill_address_id).not_to eq(other_user_address.id)
+      end
+    end
+
+    context 'as a guest user' do
+      include_context 'creates guest order with guest token'
+
+      before { execute }
+
+      it 'returns 422 and does not associate the address of another user' do
+        expect(response.status).to eq(422)
+        expect(order.reload.bill_address_id).not_to eq(other_user_address.id)
+      end
+    end
+  end
+
   describe 'checkout#add_store_credit' do
     let(:order_total) { 500.00 }
     let(:params) { { order_token: order.token } }
