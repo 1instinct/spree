@@ -65,8 +65,7 @@ module Spree
 
         attributes.transform_values! { |v| v == '' ? nil : v }
 
-        default_address_scope = user ? user.addresses : ::Spree::Address
-        default_address = default_address_scope.find_by(id: attributes[:id])
+        default_address = address_scope_for_update.find_by(id: attributes[:id])
 
         if default_address&.editable?
           default_address.update(attributes)
@@ -74,7 +73,20 @@ module Spree
           return default_address
         end
 
-        ::Spree::Address.find_or_create_by(attributes.except(:id, :updated_at, :created_at))
+        new_attributes = attributes.except(:id, :updated_at, :created_at)
+        # find_or_create_by with no attributes returns an arbitrary existing address,
+        # so an id-only payload resolves to an owned address or to nothing.
+        return default_address if new_attributes.values.all?(&:blank?)
+
+        ::Spree::Address.find_or_create_by(new_attributes)
+      end
+
+      # Addresses an `*_address_attributes[id]` may point at: the user's own, or for a
+      # guest order only the addresses already on this order (never other guests').
+      def address_scope_for_update
+        return user.addresses if user
+
+        ::Spree::Address.where(user_id: nil, id: [self['bill_address_id'], self['ship_address_id']].compact)
       end
     end
   end
