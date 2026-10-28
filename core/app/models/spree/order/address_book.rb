@@ -19,8 +19,12 @@ module Spree
       end
 
       def bill_address_id=(id)
+        # Re-assigning the order's current address is a no-op (guest checkout re-submits it).
+        return if id.present? && bill_address_id.to_s == id.to_s
+
         address = Spree::Address.find_by(id: id)
-        if address && address.user_id == user_id
+        # A guest order has no user_id; nil == nil must not match (GHSA-87fh-rc96-6fr6).
+        if address && user_id.present? && address.user_id == user_id
           self['bill_address_id'] = address.id
           user.update_attribute(:bill_address_id, address.id)
           bill_address.reload
@@ -35,8 +39,12 @@ module Spree
       end
 
       def ship_address_id=(id)
+        # Re-assigning the order's current address is a no-op (guest checkout re-submits it).
+        return if id.present? && ship_address_id.to_s == id.to_s
+
         address = Spree::Address.find_by(id: id)
-        if address && address.user_id == user_id
+        # A guest order has no user_id; nil == nil must not match (GHSA-87fh-rc96-6fr6).
+        if address && user_id.present? && address.user_id == user_id
           self['ship_address_id'] = address.id
           user.update_attribute(:ship_address_id, address.id)
           ship_address.reload
