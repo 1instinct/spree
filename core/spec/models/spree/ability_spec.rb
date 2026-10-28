@@ -266,5 +266,36 @@ describe Spree::Ability, type: :model do
         it_behaves_like 'read only'
       end
     end
+
+    context 'for Address (GHSA-3ghg-3787-w2xr)' do
+      let(:guest_address) { create(:address, user_id: nil) }
+
+      context 'with non-persisted guest user' do
+        let(:guest_ability) { Spree::Ability.new(Spree.user_class.new) }
+
+        it 'cannot read, update, destroy or manage guest addresses' do
+          %i[read edit update destroy manage].each do |action|
+            expect(guest_ability).not_to be_able_to(action, guest_address)
+          end
+        end
+      end
+
+      context 'with persisted user' do
+        let(:persisted_user) { create(:user) }
+        let(:persisted_ability) { Spree::Ability.new(persisted_user) }
+
+        it 'can manage own address' do
+          expect(persisted_ability).to be_able_to :manage, create(:address, user_id: persisted_user.id)
+        end
+
+        it 'cannot manage guest addresses' do
+          expect(persisted_ability).not_to be_able_to :manage, guest_address
+        end
+
+        it 'cannot manage other user addresses' do
+          expect(persisted_ability).not_to be_able_to :manage, create(:address, user_id: create(:user).id)
+        end
+      end
+    end
   end
 end
